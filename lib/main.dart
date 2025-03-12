@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:bloc/bloc.dart';
-import './task_bloc.dart';
-import './task_event.dart';
-import './task_state.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'bloc/TaskBloc.dart';
+import 'bloc/TaskModel.dart';
+import 'bloc/TaskEvent.dart';
+import 'bloc/TaskState.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(
+    BlocProvider(
+      create: (context) => TaskBloc(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -24,147 +31,99 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class TodoScreen extends StatefulWidget {
-  @override
-  State<TodoScreen> createState() => _TodoScreenState();
-}
-
-class _TodoScreenState extends State<TodoScreen> {
-  List<String> notStartedTasks = ["مطالعه کتاب", "ورزش"];
-  List<String> inProgressTasks = ["یادگیری فلاتر"];
-  List<String> doneTasks = ["انجام تکالیف"];
-
-  TextEditingController _taskController = TextEditingController();
-
-  // متد برای اضافه کردن تسک جدید
-  void _addTask() {
-    String task = _taskController.text.trim();
-    if (task.isNotEmpty && !notStartedTasks.contains(task)) {
-      setState(() {
-        notStartedTasks.add(task);
-        _taskController.clear();
-      });
-    }
-  }
-
-  
-  // متد برای حذف تسک
-void _removeTask(String task, List<String> taskList) {
-  setState(() {
-    // بررسی کنید که تسک در لیست وجود دارد
-    if (taskList.contains(task)) {
-      taskList.remove(task);
-    }
-  });
-}
-
-
-  Widget _buildTaskColumn(String title, List<String> tasks, List<String> otherTasks1, List<String> otherTasks2, Color color) {
-    return Expanded(
-      child: DragTarget<String>(
-        onAccept: (task) {
-          setState(() {
-            if (!tasks.contains(task)) {
-              tasks.add(task);
-            }
-            otherTasks1.remove(task);
-            otherTasks2.remove(task);
-          });
-        },
-        builder: (context, candidateData, rejectedData) {
-          return Container(
-            padding: EdgeInsets.all(8),
-            margin: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) {
-                      return Draggable<String>(
-                        data: tasks[index],
-                        child: Container(
-                          padding: EdgeInsets.all(12),
-                          margin: EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Expanded(
-                            child: Row(
-                              
-                              children: [
-                                Text(tasks[index]),
-                                Expanded(
-                                  child: IconButton(
-                                    icon: Icon(Icons.delete),
-                                    onPressed: () {
-                                      _removeTask(tasks[index], tasks); // حذف تسک از لیست جاری
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        feedback: Material(
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 177, 194, 208),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(tasks[index]),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // اضافه کردن تسک جدید
-                if (title == "انجام نشده")
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _taskController,
-                            decoration: InputDecoration(
-                              labelText: 'تسک جدید',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.add),
-                          onPressed: _addTask, // وقتی روی دکمه کلیک می‌شود تسک جدید اضافه می‌شود
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+class TodoScreen extends StatelessWidget {
+  final TextEditingController _taskController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("مدیریت تسک‌ها")),
-      body: Row(
+      body: BlocBuilder<TaskBloc, TaskState>(
+        builder: (context, state) {
+          if (state is TaskLoaded) {
+            final notStartedTasks = state.tasks.where((t) => t.status == 'notStarted').toList();
+            final inProgressTasks = state.tasks.where((t) => t.status == 'inProgress').toList();
+            final doneTasks = state.tasks.where((t) => t.status == 'done').toList();
+
+            return Row(
+              children: [
+                _buildTaskColumn(context, "انجام نشده", notStartedTasks, Colors.red[100]!),
+                _buildTaskColumn(context, "در حال انجام", inProgressTasks, Colors.orange[100]!),
+                _buildTaskColumn(context, "انجام شده", doneTasks, Colors.green[100]!),
+              ],
+            );
+          }
+          return Center(child: CircularProgressIndicator());
+        },
+      ),
+    );
+  }
+
+  Widget _buildTaskColumn(BuildContext context, String title, List<Task> tasks, Color color) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.all(8),
+        margin: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: ListView.builder(
+                itemCount: tasks.length,
+                itemBuilder: (context, index) {
+                  return _buildTaskItem(context, tasks[index]);
+                },
+              ),
+            ),
+            if (title == "انجام نشده") _buildAddTaskField(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(BuildContext context, Task task) {
+    return ListTile(
+      title: Text(task.title),
+      trailing: IconButton(
+        icon: Icon(Icons.delete),
+        onPressed: () {
+          BlocProvider.of<TaskBloc>(context).add(RemoveTask(task));
+        },
+      ),
+    );
+  }
+
+  Widget _buildAddTaskField(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Row(
         children: [
-          _buildTaskColumn("انجام نشده", notStartedTasks, inProgressTasks, doneTasks, Colors.red[100]!),
-          _buildTaskColumn("در حال انجام", inProgressTasks, notStartedTasks, doneTasks, const Color.fromARGB(255, 186, 123, 15)!),
-          _buildTaskColumn("انجام شده", doneTasks, notStartedTasks, inProgressTasks, Colors.green[100]!),
+          Expanded(
+            child: TextField(
+              controller: _taskController,
+              decoration: InputDecoration(
+                labelText: 'تسک جدید',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.add),
+            onPressed: () {
+              final taskTitle = _taskController.text.trim();
+              if (taskTitle.isNotEmpty) {
+                BlocProvider.of<TaskBloc>(context).add(
+                  AddTask(Task(title: taskTitle, status: 'notStarted')),
+                );
+                _taskController.clear();
+              }
+            },
+          ),
         ],
       ),
     );
