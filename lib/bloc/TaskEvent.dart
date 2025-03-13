@@ -23,3 +23,12 @@ class EditTask extends TaskEvent {
   @override
   List<Object?> get props => [oldTask, newTask];
 }
+class UpdateTaskStatus extends TaskEvent {
+  final Task task;
+  final String newStatus;
+
+  UpdateTaskStatus({required this.task, required this.newStatus});
+
+  @override
+  List<Object?> get props => [task, newStatus];
+}

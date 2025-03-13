@@ -39,55 +39,67 @@ class TodoScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text("مدیریت تسک‌ها")),
       body: BlocBuilder<TaskBloc, TaskState>(
-        builder: (context, state) {
-          if (state is TaskLoaded) {
-            final notStartedTasks = state.tasks.where((t) => t.status == 'notStarted').toList();
-            final inProgressTasks = state.tasks.where((t) => t.status == 'inProgress').toList();
-            final doneTasks = state.tasks.where((t) => t.status == 'done').toList();
+  builder: (context, state) {
+    if (state is TaskLoaded) {
+      return Row(
+        children: [
+          _buildTaskColumn(context, "انجام نشده", "notStarted", state.tasks.where((t) => t.status == 'notStarted').toList(), Colors.red[100]!),
+          _buildTaskColumn(context, "در حال انجام", "inProgress", state.tasks.where((t) => t.status == 'inProgress').toList(), Colors.orange[100]!),
+          _buildTaskColumn(context, "انجام شده", "done", state.tasks.where((t) => t.status == 'done').toList(), Colors.green[100]!),
+        ],
+      );
+    }
+    return Center(child: CircularProgressIndicator());
+  },
+),
 
-            return Row(
-              children: [
-                _buildTaskColumn(context, "انجام نشده", notStartedTasks, Colors.red[100]!),
-                _buildTaskColumn(context, "در حال انجام", inProgressTasks, Colors.orange[100]!),
-                _buildTaskColumn(context, "انجام شده", doneTasks, Colors.green[100]!),
-              ],
-            );
-          }
-          return Center(child: CircularProgressIndicator());
-        },
-      ),
     );
   }
 
-  Widget _buildTaskColumn(BuildContext context, String title, List<Task> tasks, Color color) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.all(8),
-        margin: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          children: [
-            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Expanded(
-              child: ListView.builder(
-                itemCount: tasks.length,
-                itemBuilder: (context, index) {
-                  return _buildTaskItem(context, tasks[index]);
-                },
+  Widget _buildTaskColumn(BuildContext context, String title, String status, List<Task> tasks, Color color) {
+  return Expanded(
+    child: DragTarget<Task>(
+      onAccept: (task) {
+        BlocProvider.of<TaskBloc>(context).add(UpdateTaskStatus(task: task, newStatus: status));
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Container(
+          padding: EdgeInsets.all(8),
+          margin: EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+          child: Column(
+            children: [
+              Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    return _buildTaskItem(context, tasks[index]);
+                  },
+                ),
               ),
-            ),
-            if (title == "انجام نشده") _buildAddTaskField(context),
-          ],
-        ),
-      ),
-    );
-  }
+              if (status == "notStarted") _buildAddTaskField(context), // اضافه کردن فیلد فقط در ستون "انجام نشده"
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 
   Widget _buildTaskItem(BuildContext context, Task task) {
-    return ListTile(
+  return Draggable<Task>(
+    data: task,
+    feedback: Material(
+      child: Container(
+        padding: EdgeInsets.all(8),
+        color: Colors.grey[300],
+        child: Text(task.title, style: TextStyle(fontSize: 16)),
+      ),
+    ),
+    childWhenDragging: Opacity(opacity: 0.5, child: ListTile(title: Text(task.title))),
+    child: ListTile(
       title: Text(task.title),
       trailing: IconButton(
         icon: Icon(Icons.delete),
@@ -95,8 +107,10 @@ class TodoScreen extends StatelessWidget {
           BlocProvider.of<TaskBloc>(context).add(RemoveTask(task));
         },
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildAddTaskField(BuildContext context) {
     return Padding(
